@@ -121,7 +121,7 @@ function draw() {
 		let rightWrist = allPoints[16];
 		
 		// Check if either wrist x position <= 400
-		if (leftWrist.x <= 500 || rightWrist.x <= 500) {
+		if (leftWrist.x <= 800 || rightWrist.x <= 800) {
 			image(cinema, 0, 0,windowWidth,windowHeight);
 		}
 	}
