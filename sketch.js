@@ -59,7 +59,7 @@ function preload()
 	cinema = loadImage("angrycat.jpg");
   happy = loadImage("happycat.png");
   spooky = loadImage("spookycat.jpg");
-  secret = loadImage("secretdog.jpg")
+  secret = loadImage("secretdog.jpg");
 }
 // ==============================================
 // SETUP - Runs once when page loads
@@ -69,7 +69,7 @@ function setup() {
   lockGestures();  // Prevent phone gestures (zoom, refresh)
   
   // Create camera: front camera, mirrored, fit to canvas height
-  cam = createPhoneCamera('environment', true, 'fitHeight');
+  cam = createPhoneCamera('user', true, 'fitHeight');
   
   // Enable camera (handles initialization automatically)
   enableCameraTap();
