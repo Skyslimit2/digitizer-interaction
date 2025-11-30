@@ -45,7 +45,14 @@ let cam;                            // PhoneCamera instance
 let bodypose;                       // ML5 BodyPose model
 let poses = [];                     // Detected bodies (updated automatically)
 let cursor;                         // Tracked keypoint position (mapped to screen coordinates)
+let showing1 = false
+let showing2 = false
+let showing3 = false
+let showing4 = false
 
+let savedTime = 0;
+let totalTime = 5000;
+let countEllipse = 0;
 
 function preload()
 {
@@ -100,7 +107,20 @@ function modelLoaded() {
 // ==============================================
 function draw() {
   background(40);  // Dark gray background
-  
+
+  if (showing1 || showing2 || showing3 || showing4)
+{
+   let passedTime = millis() - savedTime;
+
+   if (passedTime > totalTime) {
+      console.log("5 seconds have passed!");
+      showing1 = false;
+      showing2 = false;
+      showing3 = false;
+      showing4 = false;
+      savedTime = millis();
+}
+}
   // Draw the camera feed (toggle with touch)
   if (SHOW_VIDEO) {
     image(cam, 0, 0);  // PhoneCamera handles positioning and mirroring!
@@ -124,17 +144,21 @@ function draw() {
 		let rightWrist = allPoints[16];
 		
 		// Check if either wrist x position <= 400
-		if (leftWrist.x >= 390  && leftWrist.x <= 432 && leftWrist.y >= 678 && leftWrist.y <= 732) {
+		if (leftWrist.x >= 390  && leftWrist.x <= 432 && leftWrist.y >= 678 && leftWrist.y <= 732 || showing1) {
 			image(cinema, 0, 0,windowWidth,windowHeight);
+      showing1 = true;
 		}
-    if (leftWrist.x >= 720 && leftWrist.x <= 786) {
+    if (leftWrist.x >= 720 && leftWrist.x <= 800 && leftWrist.y >= 900 && leftWrist.y <= 1000 || showing2) {
       image(spooky, 0, 0,windowWidth,windowHeight);
+      showing2 = true;
     }
-    if (leftWrist.y <= 363 && leftWrist.y >= 230) {
+    if (leftWrist.y <= 363 && leftWrist.y >= 230 && leftWrist.x <= 500 && leftWrist.x >= 300 || showing3) {
       image(happy, 0, 0,windowWidth,windowHeight);
+      showing3 = true;
     }
-    if (leftWrist.y == 1000){
+    if (leftWrist.x == 820 || showing4){
       image(secret, 0, 0,windowWidth,windowHeight);
+      showing4 = true;
     }
 	}
 	}
