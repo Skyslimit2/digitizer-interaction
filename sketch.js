@@ -49,7 +49,10 @@ let cursor;                         // Tracked keypoint position (mapped to scre
 
 function preload()
 {
-	cinema = loadImage("absolute crushed.jpg");
+	cinema = loadImage("angrycat.jpg");
+  happy = loadImage("happycat.png");
+  spooky = loadImage("spookycat.jpg");
+  secret = loadImage("secretdog.jpg")
 }
 // ==============================================
 // SETUP - Runs once when page loads
@@ -121,11 +124,27 @@ function draw() {
 		let rightWrist = allPoints[16];
 		
 		// Check if either wrist x position <= 400
-		if (leftWrist.y <= 600 || rightWrist.y <= 600) {
+		if (leftWrist.x >= 390  && leftWrist.x <= 432 && leftWrist.y >= 678 && leftWrist.y <= 732) {
 			image(cinema, 0, 0,windowWidth,windowHeight);
 		}
+    if (leftWrist.x >= 720 && leftWrist.x <= 786) {
+      image(spooky, 0, 0,windowWidth,windowHeight);
+    }
+    if (leftWrist.y <= 363 && leftWrist.y >= 230) {
+      image(happy, 0, 0,windowWidth,windowHeight);
+    }
+    if (leftWrist.y == 1000){
+      image(secret, 0, 0,windowWidth,windowHeight);
+    }
 	}
 	}
+  // Style the text.
+  textAlign(CENTER);
+  textSize(16);
+
+  // Display the mouse's coordinates.
+  text(`x: ${mouseX} y: ${mouseY}`, 50, 50);
+
   // Draw instructions and status
   drawUI();
 }
