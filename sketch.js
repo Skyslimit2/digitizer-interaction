@@ -43,13 +43,14 @@ let KEYPOINT_SIZE = 5;              // Size of all body keypoints (if shown)
 // ==============================================
 let cam;                            // PhoneCamera instance
 let bodypose;                       // ML5 BodyPose model
-let poses = [];                     // Detected bodies (updated automatically)
-let cursor;                         // Tracked keypoint position (mapped to screen coordinates)
+let poses = [];                     // Detected bodies (updated automatically)                         // Tracked keypoint position (mapped to screen coordinates)
 var gif_loadImg, gif_createImg;
-let showing1 = false
-let showing2 = false
-let showing3 = false
-let showing4 = false
+let showing1 = false;
+let showing2 = false;
+let showing3 = false;
+let showing4 = false;
+let camReady = false;
+
 
 let savedTime = 0;
 let totalTime = 5000;
@@ -62,6 +63,7 @@ function preload()
   spooky = loadImage("spookycat.jpg");
   secret = loadImage("secretdog.jpg");
   gif_loadImg = loadImage("idle.gif");
+  gif_createImg = loadImage("scan.gif");
 }
 // ==============================================
 // SETUP - Runs once when page loads
@@ -89,12 +91,17 @@ function setup() {
       trackerType: 'boundingBox',         // Tracking method
       trackerConfig: {},
       modelUrl: undefined,
-      flipped: false                      // Don't flip in ML5 - cam.mapKeypoint() handles mirroring
+      flipped: false,                      // Don't flip in ML5 - cam.mapKeypoint() handles mirroring
     };
-    
+    camReady = true;
     // Create BodyPose model with ready callback
     bodypose = ml5.bodyPose('BlazePose', options, modelLoaded);
   });
+  leftx = windowWidth/2
+  lefty = windowHeight/2
+
+  cheer = loadSound('kids cheering.mp3');
+  playing = false;
 }
 
 function modelLoaded() {
@@ -108,9 +115,18 @@ function modelLoaded() {
 // DRAW - Runs continuously (60 times per second)
 // ==============================================
 function draw() {
-  background('pink');  //background
-
-  image(gif_loadImg, 50, 50, 150, 260);
+  background('pink');  
+  push();
+  imageMode(CENTER);
+  if (!camReady)
+  {
+    image(gif_loadImg, leftx, lefty, 150, 260);
+  }
+  else
+  {
+    image(gif_createImg, leftx, lefty, 150, 260);
+  }
+  pop();
 
   if (showing1 || showing2 || showing3 || showing4)
 {
@@ -122,19 +138,11 @@ function draw() {
       showing2 = false;
       showing3 = false;
       showing4 = false;
+      playing = false;
       savedTime = millis();
 }
 }
-  // Draw the camera feed (toggle with touch)
-  if (SHOW_VIDEO) {
-    image(cam, 0, 0);  // PhoneCamera handles positioning and mirroring!
-  }
   
-  // Draw body tracking
-  if (poses.length > 0) {
-    drawAllPoses();
-    drawTrackedCursor();
-  }
 	if (poses.length > 0) {
 	// Use the first detected person
 	let pose = poses[0];
@@ -146,279 +154,49 @@ function draw() {
 	if (allPoints[15] && allPoints[16]) {
 		let leftWrist = allPoints[15];
 		let rightWrist = allPoints[16];
+
+    push();
+    fill(0);
+    noStroke();
+    textAlign(CENTER, TOP);
+    textSize(30);
+    text("MOVE YOUR LEFT HAND!    FIND THE CATS!!!!", width/2, 100);
+    pop();
 		
 		// Check if either wrist x position <= 400
+
+    leftx = leftWrist.x;
+    lefty = leftWrist.y;
+
+
 		if (leftWrist.x >= 390  && leftWrist.x <= 432 && leftWrist.y >= 678 && leftWrist.y <= 732 || showing1) {
 			image(cinema, 0, 0,windowWidth,windowHeight);
       showing1 = true;
+      playCheer();
 		}
     if (leftWrist.x >= 720 && leftWrist.x <= 800 && leftWrist.y >= 900 && leftWrist.y <= 1000 || showing2) {
       image(spooky, 0, 0,windowWidth,windowHeight);
       showing2 = true;
+      playCheer();
     }
     if (leftWrist.y <= 363 && leftWrist.y >= 230 && leftWrist.x <= 500 && leftWrist.x >= 300 || showing3) {
       image(happy, 0, 0,windowWidth,windowHeight);
       showing3 = true;
+      playCheer();
     }
     if (leftWrist.x == 820 || showing4){
       image(secret, 0, 0,windowWidth,windowHeight);
       showing4 = true;
+      playCheer();
     }
 	}
 	}
-  // Style the text.
-  textAlign(CENTER);
-  textSize(16);
-
-  // Display the mouse's coordinates.
-  text(`x: ${mouseX} y: ${mouseY}`, 50, 50);
-
-  // Draw instructions and status
-  drawUI();
 }
 
-// ==============================================
-// DRAW ALL POSES - Show keypoints for all detected bodies
-// ==============================================
-function drawAllPoses() {
-  // Draw each detected body
-  for (let i = 0; i < poses.length; i++) {
-    let pose = poses[i];
-    
-    if (!pose.keypoints || pose.keypoints.length === 0) continue;
-    
-    // Map all keypoints to screen coordinates
-    let allPoints = cam.mapKeypoints(pose.keypoints);
-    
-    // Body color (can differentiate multiple people)
-    let bodyColor = [0, 255, 150]; // Green
-    
-    // ==============================================
-    // DRAW BODY KEYPOINTS
-    // ==============================================
-    if (SHOW_ALL_KEYPOINTS) {
-      push();
-      for (let point of allPoints) {
-        // Only draw if confidence is high enough
-        let originalPoint = pose.keypoints[allPoints.indexOf(point)];
-        if (originalPoint && originalPoint.confidence > 0.3) {
-          fill(bodyColor[0], bodyColor[1], bodyColor[2], 150);
-          noStroke();
-          ellipse(point.x, point.y, KEYPOINT_SIZE, KEYPOINT_SIZE);
-        }
-      }
-      pop();
-      
-      // Draw body skeleton/connections
-      drawBodySkeleton(pose.keypoints, allPoints, bodyColor);
-    }
-  }
-}
-
-// ==============================================
-// DRAW TRACKED CURSOR - Show the specific tracked point
-// ==============================================
-function drawTrackedCursor() {
-  // Use first detected body
-  let pose = poses[0];
-  
-  if (!pose || !pose.keypoints) return;
-  
-  // ==============================================
-  // MAIN INTERACTION: Get tracked keypoint position
-  // ==============================================
-  // This is the body point you can use to control UI elements!
-  // Change TRACKED_KEYPOINT_INDEX at top of file to track different points
-  
-  let trackedKeypoint = pose.keypoints[TRACKED_KEYPOINT_INDEX];
-  if (!trackedKeypoint || trackedKeypoint.confidence < 0.3) return;
-  
-  // Map to screen coordinates - ONE LINE!
-  // cam.mapKeypoint() handles all scaling and mirroring automatically
-  cursor = cam.mapKeypoint(trackedKeypoint);
-  
-  // ==============================================
-  // USE THE CURSOR POSITION FOR INTERACTION
-  // ==============================================
-  // Now you have cursor.x, cursor.y, and cursor.z (3D!) to use however you want!
-  // Examples:
-  // - Move objects: object.x = cursor.x, object.y = cursor.y
-  // - Check collision: if (dist(cursor.x, cursor.y, target.x, target.y) < 50) {...}
-  // - Control parameters: brightness = map(cursor.y, 0, height, 0, 255)
-  // - Use depth: size = map(cursor.z, -100, 100, 10, 50)
-  
-  // Draw cursor at tracked position
-  push();
-  fill(CURSOR_COLOR[0], CURSOR_COLOR[1], CURSOR_COLOR[2]);
-  noStroke();
-  ellipse(cursor.x, cursor.y, CURSOR_SIZE, CURSOR_SIZE);
-  
-  // Optional: Show crosshair for precise positioning
-  stroke(CURSOR_COLOR[0], CURSOR_COLOR[1], CURSOR_COLOR[2], 150);
-  strokeWeight(2);
-  line(cursor.x - 15, cursor.y, cursor.x + 15, cursor.y);
-  line(cursor.x, cursor.y - 15, cursor.x, cursor.y + 15);
-  pop();
-  
-  // Optional: Display coordinates (useful for debugging)
-  push();
-  fill(255);
-  stroke(0);
-  strokeWeight(3);
-  textAlign(CENTER, TOP);
-  textSize(14);
-  text('x: ' + cursor.x.toFixed(0) + ', y: ' + cursor.y.toFixed(0) + 
-       ', z: ' + (cursor.z || 0).toFixed(2), 
-       cursor.x, cursor.y + CURSOR_SIZE/2 + 10);
-  pop();
-}
-
-// ==============================================
-// DRAW BODY SKELETON - Connect keypoints to show body structure
-// ==============================================
-function drawBodySkeleton(originalPoints, mappedPoints, color) {
-  // BlazePose connections (33 keypoints)
-  const connections = [
-    // Face
-    [0, 1], [1, 2], [2, 3], [3, 7],     // Nose to left
-    [0, 4], [4, 5], [5, 6], [6, 8],     // Nose to right
-    [9, 10],                             // Mouth
-    
-    // Torso
-    [11, 12],                            // Shoulders
-    [11, 23], [12, 24],                  // Shoulder to hip
-    [23, 24],                            // Hips
-    
-    // Left arm
-    [11, 13], [13, 15],                  // Shoulder to elbow to wrist
-    [15, 17], [15, 19], [15, 21],        // Wrist to hand
-    [17, 19],                            // Hand connections
-    
-    // Right arm  
-    [12, 14], [14, 16],                  // Shoulder to elbow to wrist
-    [16, 18], [16, 20], [16, 22],        // Wrist to hand
-    [18, 20],                            // Hand connections
-    
-    // Left leg
-    [23, 25], [25, 27],                  // Hip to knee to ankle
-    [27, 29], [27, 31],                  // Ankle to foot
-    [29, 31],                            // Foot connections
-    
-    // Right leg
-    [24, 26], [26, 28],                  // Hip to knee to ankle
-    [28, 30], [28, 32],                  // Ankle to foot
-    [30, 32]                             // Foot connections
-  ];
-  
-  push();
-  stroke(color[0], color[1], color[2], 150);
-  strokeWeight(2);
-  
-  for (let connection of connections) {
-    let [i, j] = connection;
-    // Only draw if both points have high confidence
-    if (originalPoints[i] && originalPoints[j] &&
-        originalPoints[i].confidence > 0.3 && 
-        originalPoints[j].confidence > 0.3 &&
-        mappedPoints[i] && mappedPoints[j]) {
-      line(mappedPoints[i].x, mappedPoints[i].y, 
-           mappedPoints[j].x, mappedPoints[j].y);
-    }
-  }
-  pop();
-  
-}
-
-// ==============================================
-// DRAW UI - Display status and instructions
-// ==============================================
-function drawUI() {
-  push();
-  fill(255);
-  noStroke();
-  textAlign(CENTER, TOP);
-  textSize(18);
-  
-  // Show status at top of screen
-  if (!cam.ready) {
-    text('Starting camera...', width/2, 20);
-  } else if (poses.length === 0) {
-    text('Show your body to start tracking', width/2, 20);
-  } else {
-    // Show which keypoint is being tracked
-    let keypointNames = {
-      0: 'Nose',
-      11: 'Left Shoulder',
-      12: 'Right Shoulder',
-      13: 'Left Elbow',
-      14: 'Right Elbow',
-      15: 'Left Wrist',
-      16: 'Right Wrist',
-      23: 'Left Hip',
-      24: 'Right Hip',
-      25: 'Left Knee',
-      26: 'Right Knee',
-      27: 'Left Ankle',
-      28: 'Right Ankle'
-    };
-    let name = keypointNames[TRACKED_KEYPOINT_INDEX] || 'Keypoint ' + TRACKED_KEYPOINT_INDEX;
-    text('Tracking: ' + name, width/2, 20);
-    
-    // Show detected poses count
-    textSize(14);
-    text('Bodies detected: ' + poses.length, width/2, 45);
-  }
-  
-  // Show instructions at bottom
-  textSize(14);
-  fill(200);
-  textAlign(CENTER, BOTTOM);
-  text('Touch screen to toggle video', width/2, height - 20);
-  
-  // Show settings status
-  textSize(12);
-  fill(SHOW_VIDEO ? [0, 255, 0] : [150, 150, 150]);
-  text('Video: ' + (SHOW_VIDEO ? 'ON' : 'OFF'), width/2, height - 40);
-  
-  fill(SHOW_ALL_KEYPOINTS ? [0, 255, 0] : [150, 150, 150]);
-  text('All Keypoints: ' + (SHOW_ALL_KEYPOINTS ? 'ON' : 'OFF'), width/2, height - 55);
-  
-  fill(255);
-  if (cam.ready) {
-    text('Camera: ' + cam.active + ' (mirrored: ' + cam.mirror + ')', width/2, height - 70);
-  }
-  
-  pop();
-}
-
-// ==============================================
-// TOUCH EVENTS - Toggle video display
-// ==============================================
-function touchStarted() {
-  SHOW_VIDEO = !SHOW_VIDEO;
-  return false;  // Prevent default to avoid interfering with camera/ML5
-}
-
-// Also works with mouse click for testing on desktop
-function mousePressed() {
-  SHOW_VIDEO = !SHOW_VIDEO;
-  return false;
-}
-
-// ==============================================
-// KEY PRESS - Switch camera with spacebar
-// ==============================================
-function keyPressed() {
-  if (key === ' ' && cam.ready) {
-    // Switch between front and back camera
-    cam.active = cam.active === 'user' ? 'environment' : 'user';
-    
-    // Typically mirror front camera, not back camera
-    if (cam.active === 'environment') {
-      cam.mirror = false;
-    } else {
-      cam.mirror = true;
-    }
+function playCheer() {
+  if(!playing){
+    cheer.play();
+    playing = true;
   }
 }
 
