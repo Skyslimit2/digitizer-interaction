@@ -45,6 +45,7 @@ let cam;                            // PhoneCamera instance
 let bodypose;                       // ML5 BodyPose model
 let poses = [];                     // Detected bodies (updated automatically)
 let cursor;                         // Tracked keypoint position (mapped to screen coordinates)
+var gif_loadImg, gif_createImg;
 let showing1 = false
 let showing2 = false
 let showing3 = false
@@ -60,6 +61,7 @@ function preload()
   happy = loadImage("happycat.png");
   spooky = loadImage("spookycat.jpg");
   secret = loadImage("secretdog.jpg");
+  gif_loadImg = loadImage("idle.gif");
 }
 // ==============================================
 // SETUP - Runs once when page loads
@@ -106,7 +108,9 @@ function modelLoaded() {
 // DRAW - Runs continuously (60 times per second)
 // ==============================================
 function draw() {
-  background(40);  // Dark gray background
+  background('pink');  //background
+
+  image(gif_loadImg, 50, 50, 150, 260);
 
   if (showing1 || showing2 || showing3 || showing4)
 {
